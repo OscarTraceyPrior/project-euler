@@ -1,7 +1,5 @@
-import java.util.Arrays;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Objects;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class Euler24 {
 
@@ -17,19 +15,31 @@ public class Euler24 {
         012345.7’86~9 - This essentially just becomes recursion; child pivots on child pivots.
         */
 
-    public static List<Integer> NUMBERS = List.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-    public static List<Integer> TEST_CASE  = List.of(7, 8, 9);
-    public static List<Integer> RECURSIVE_TEST_CASE  = List.of(6, 7, 8, 9);
-    public static List<Integer> PROFILING_CASE  = List.of(2, 3, 4, 5, 6, 7, 8, 9);
+    public static List<String> NUMBERS = List.of("0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
+    public static List<String> TEST_CASE  = List.of("7", "8", "9");
+    public static List<String> RECURSIVE_TEST_CASE  = List.of("6", "7", "8", "9");
+    public static List<String> PROFILING_CASE  = List.of("1", "2", "3", "4", "5", "6", "7", "8", "9");
+    public static Map<String, List<Permutation>> solved = new HashMap<>();
 
-    public static void main (String[] args) {
+    // TODO: Next job is an optimisation for adding 0 at the front. Might not need to calculate, surely just the millionth ordered permutation with 0 at the front?
+    //  [this doesn't work, there are only 300k permutations without the 0
+    // TODO: Second thought, cached results style again. We'll get some memory overhead and pain in the form of comparisons to keys, but it might save us more computation.
+    //  [this also doesn't work, gave an incorrect answer of 2783915604
+    // TODO: Third though, El suggested we go for a simple recursive structure. In the initial consideration of the problem, I think we missed that if
+    //  we went for the prepend-value based recursion, the *other* loops would account for every value being included in the mix early on.
+    //  I suppose the other consideration is the sorting, though. We'd have to give another thorough sort after the fact since there's no guarantee the basic recursion would keep it sorted.
+    public static void main (String[] args) throws Exception {
 
-        List<Permutation> permutations = generateOrderedPermutations(PROFILING_CASE);
-//        List<Permutation> permutations = generateOrderedPermutations(PROFILING_CASE);
+//        List<Permutation> permutations = generateOrderedPermutations(NUMBERS);
+
+        NUMBERS.forEach(e -> solved.put(e, List.of(new Permutation(List.of(e)))));
+        List<Permutation> permutations = generateOrderedPermutations(NUMBERS);
+
 
         testLexicographicPermutationOrder(permutations);
+        System.out.println("THE ANSWER:   " + permutations.get(1_000_000));
     }
-    
+
 //    public static List<Permutation> generateOrderedPermutations(List<Integer> values) {
 //        List<Permutation> permutations = new ArrayList<>();
 //        int expectedPermutations = factorial(values.size());
@@ -55,51 +65,71 @@ public class Euler24 {
 //    }
 
 
-    static List<Permutation> generateOrderedPermutations(List<Integer> digits) {
+    static List<Permutation> generateOrderedPermutations(List<String> digits) throws Exception {
         if (digits.size() == 1) {
-            return List.of(new Permutation(digits));
+            return solved.get(digits.getFirst());
         }
 
         if (digits.size() == 2) {
-            return List.of(new Permutation(digits), new Permutation(digits.reversed()));
+            List<Permutation> result = solved.get(convertToString(digits));
+
+            if(result == null) {
+                result = List.of(new Permutation(digits), new Permutation(digits.reversed()));
+                solved.put(convertToString(digits), result);
+            }
+
+            return result;
         }
 
-        int pivotIndex = digits.size() - 1; // Pivot sits on the index of the element it is to the *LEFT* of.
-        int expectedNumberOfPermutations = factorial(digits.size());
-        List<Permutation> permutations = new ArrayList<>();
+        List<Permutation> result = solved.get(convertToString(digits));
 
-        while (permutations.size() != expectedNumberOfPermutations) {
-            if (pivotIndex > 0) {
-                List<Permutation> subPermutations = generateOrderedPermutations(digits.subList(pivotIndex, digits.size()));
+        if (result == null) {
 
-                for (Permutation subPermutation : subPermutations) {
-                    permutations.add(new Permutation(convertToDigits(convertToString(digits.subList(0, pivotIndex)) + subPermutation.toString())));
-                }
+            int pivotIndex = digits.size() - 1; // Pivot sits on the index of the element it is to the *LEFT* of.
+            int expectedNumberOfPermutations = factorial(digits.size());
+            List<Permutation> permutations = new ArrayList<>();
 
-                pivotIndex--;
-            } else {
-                List<Integer> digitsToBeFirst = new ArrayList<>(digits.stream().filter(e -> !Objects.equals(e, digits.getFirst())).toList());
+            while (permutations.size() != expectedNumberOfPermutations) {
+                if (pivotIndex > 0) {
+                    int boundaryOfPivot = pivotIndex;
+                    List<Permutation> subPermutations = generateOrderedPermutations(digits.subList(boundaryOfPivot, digits.size()));
 
-
-                while (!digitsToBeFirst.isEmpty()) {
-                    String smallest = digitsToBeFirst.stream().sorted().findFirst().get() + "";
-
-//                    List<Integer> digitsExcludingSmallest = digits.stream().filter(e -> !Objects.equals(e, Integer.parseInt(smallest))).toList();
-                    List<Integer> digitsExcludingSmallest = new ArrayList<>(digits);
-                    digitsExcludingSmallest.remove((Object) Integer.parseInt(smallest));
-                    List<Permutation> subPermutations = generateOrderedPermutations(digitsExcludingSmallest);
                     for (Permutation subPermutation : subPermutations) {
-                        Permutation newPermutation = new Permutation(convertToDigits(smallest + subPermutation.toString()));
-                        permutations.add(newPermutation);
+                        Permutation newPermutation = new Permutation(convertToString(digits.subList(0, pivotIndex)) + subPermutation.toString());
+                        if (!permutations.contains(newPermutation)) {
+                            permutations.add(newPermutation);
+                        }
                     }
 
-//                    digitsToBeFirst = digitsToBeFirst.stream().filter(e -> !Objects.equals(e, Integer.parseInt(smallest))).toList();
-                    digitsToBeFirst.remove((Object) Integer.parseInt(smallest));
+                    pivotIndex--;
+                } else {
+                    List<String> digitsToBeFirst = new ArrayList<>(digits.stream().filter(e -> !Objects.equals(e, digits.getFirst())).toList());
+
+
+                    while (!digitsToBeFirst.isEmpty()) {
+                        String smallest = digitsToBeFirst.stream().sorted().findFirst().get();
+
+//                    List<Integer> digitsExcludingSmallest = digits.stream().filter(e -> !Objects.equals(e, Integer.parseInt(smallest))).toList();
+                        List<String> digitsExcludingSmallest = new ArrayList<>(digits);
+                        digitsExcludingSmallest.remove(smallest);
+                        List<Permutation> subPermutations = generateOrderedPermutations(digitsExcludingSmallest);
+//                    List<Permutation> subPermutationsWithoutFirst = subPermutations.subList(1, subPermutations.size());
+
+                        for (Permutation subPermutation : subPermutations) {
+                            Permutation newPermutation = new Permutation(smallest + subPermutation.toString());
+                            permutations.add(newPermutation);
+                        }
+
+                        digitsToBeFirst.remove(smallest);
+                    }
                 }
             }
+
+            result = permutations.stream().sorted().distinct().toList();
+            solved.put(convertToString(digits), permutations);
         }
 
-        return permutations.stream().distinct().toList();
+        return result;
     }
 
     public static int factorial(int base) {
@@ -110,25 +140,14 @@ public class Euler24 {
         }
     }
 
-    public static String convertToString(List<Integer> digits) {
+    public static String convertToString(List<String> digits) {
         StringBuilder sb = new StringBuilder();
 
-        for (Integer digit : digits) {
+        for (String digit : digits) {
             sb.append(digit);
         }
 
         return sb.toString();
-    }
-
-    public static List<Integer> convertToDigits(String stringDigits) {
-        return Arrays.stream(stringDigits.split("")).map(Integer::parseInt).toList();
-//        List<Integer> ints = new ArrayList<>();
-//
-//        for (int i = 0; i < stringDigits.length(); i++) {
-//            ints.add(Character.getNumericValue(stringDigits.charAt(i)));
-//        }
-//
-//        return ints;
     }
 
 
@@ -149,8 +168,12 @@ public class Euler24 {
 
         private final String permutation;
 
-        public Permutation(List<Integer> permutation) {
+        public Permutation(List<String> permutation) {
             this.permutation = convertToString(permutation);
+        }
+
+        public Permutation(String permutation) {
+            this.permutation = permutation;
         }
 
         @Override
@@ -160,7 +183,7 @@ public class Euler24 {
 
         @Override
         public int compareTo(Permutation o) {
-            return Integer.parseInt(this.toString()) - Integer.parseInt(o.toString());
+            return this.permutation.compareTo(o.toString());
         }
 
         @Override
