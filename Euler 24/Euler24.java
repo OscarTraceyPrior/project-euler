@@ -35,10 +35,12 @@ public class Euler24 {
 
         NUMBERS.forEach(e -> solved.put(e, List.of(new Permutation(List.of(e)))));
         List<Permutation> permutations = generateOrderedPermutations(NUMBERS);
-
+        if (permutations.size() != factorial(10)) {
+            throw new RuntimeException("bad number");
+        }
 
         testLexicographicPermutationOrder(permutations);
-        System.out.println("THE ANSWER:   " + permutations.get(1_000_000));
+        System.out.println("THE ANSWER:   " + permutations.get(999_999));
     }
 
     static List<Permutation> generateOrderedPermutations(List<String> digits) {
@@ -63,7 +65,7 @@ public class Euler24 {
                     }).toList());
         }
 
-        return permutations;
+        return permutations.stream().distinct().toList();
     }
 
 
